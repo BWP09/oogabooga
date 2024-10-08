@@ -2,6 +2,7 @@
 typedef struct Circle {
     Vector2 pos;
     float radius;
+	double alpha;
 } Circle;
 
 int entry(int argc, char **argv) {
@@ -22,7 +23,7 @@ int entry(int argc, char **argv) {
     const float radius_min = 8.0;
     const float radius_max = 32.0;
     
-    const float hover_radius = 200;
+    float hover_radius = 200;
     
     os_update(); // We set scaled window size, os_update updates the pixel window size values for us
     
@@ -33,8 +34,10 @@ int entry(int argc, char **argv) {
     		get_random_float32_in_range(-(f32)window.height/2.0+r, (f32)window.height/2.0-r)
     	);
     	// &(Circle){p, r} will only compile in true C, not in a C++ compiler
-        growing_array_add((void**)&circles, &(Circle){p, r});
+        growing_array_add((void**)&circles, &(Circle){p, r, 1.0});
     }
+
+	int power = 0;
 
 	float64 last_time = os_get_elapsed_seconds();
 	while (!window.should_close) {
@@ -46,7 +49,11 @@ int entry(int argc, char **argv) {
 		
 		draw_frame.projection = m4_make_orthographic_projection(window.pixel_width * -0.5, window.pixel_width * 0.5, window.pixel_height * -0.5, window.pixel_height * 0.5, -1, 10);
 		
+		if (is_key_just_pressed(KEY_ARROW_LEFT))  power -= (power > 0) ? 1 : 0;
+		if (is_key_just_pressed(KEY_ARROW_RIGHT)) power += 1;
 		
+		hover_radius = (200 * (sin(now / 2) + 1)) + 200;
+
         float mx = input_frame.mouse_x - window.width/2;
         float my = input_frame.mouse_y - window.height/2;
         
@@ -56,7 +63,12 @@ int entry(int argc, char **argv) {
 		for (int i = 0; i < num_circles; i++) {
             float distance = v2_length(v2_sub(v2(mx, my), circles[i].pos));
             if (distance <= hover_radius) {
-                growing_array_add((void**)&circles_hovered, &circles[i]);
+				Circle c = circles[i];
+				if (power == 0)
+					growing_array_add((void**)&circles_hovered, &circles[i]);
+                
+				else
+					growing_array_add((void**)&circles_hovered, &(Circle){c.pos, c.radius, max(0, 1.0 - (powf(distance, (float)power) / powf(hover_radius, (float)power)))});
             }
 		}
         
@@ -64,7 +76,7 @@ int entry(int argc, char **argv) {
 	
 		for (int i = 0; i < growing_array_get_valid_count(circles_hovered); i++) {
             Circle c = circles_hovered[i];
-            draw_circle(v2_sub(c.pos, v2(c.radius, c.radius)), v2(c.radius, c.radius), COLOR_GREEN);
+            draw_circle(v2_sub(c.pos, v2(c.radius, c.radius)), v2(c.radius, c.radius), v4(0.0, 1.0, 0.0, c.alpha));
 		}
 		
 		os_update(); 
